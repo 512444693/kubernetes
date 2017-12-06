@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdn-cdnmaster
+  labels:
+    app: cdn
+    tier: cdnmaster
+spec:
+  type: NodePort
+  ports:
+  - port: 23232
+    name: tcp
+  - port: 23231
+    name: http
+  selector:
+    app: cdn
+    tier: cdnmaster
+---
+apiVersion: apps/v1beta2 # for versions before 1.8.0 use apps/v1beta1
+kind: Deployment
+metadata:
+  name: cdn-cdnmaster
+  labels:
+    app: cdn
+    tier: cdnmaster
+spec:
+  selector:
+    matchLabels:
+      app: cdn
+      tier: cdnmaster
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cdn
+        tier: cdnmaster
+    spec:
+      initContainers:
+      - name: init-conf
+        image: busybox
+        env:
+        - name: MASTER_DB
+          value: cdn-mysql-0.cdn-mysql
+        - name: SLAVE_DB
+          value: cdn-mysql-1.cdn-mysql
+        command: 
+        - sh
+        - "-c"
+        - |
+          set -ex
+          # 将config-volume中的配置文件拷贝到conf中
+          cp /config-volume/* /conf
+          # 替换配置文件中的ip
+          #DB_IP=$(nslookup $MASTER_DB | tail -n 1| awk '{print $3}')
+          #sed -i "s/MASTER_DB/$DB_IP/g" /conf/mastersrv.conf
+          #SLAVE_DB_IP=$(nslookup $SLAVE_DB | tail -n 1| awk '{print $3}')
+          #sed -i "s/SLAVE_DB/$SLAVE_DB_IP/g" /conf/mastersrv.conf
+          
+          # 替换为域名
+          sed -i "s/MASTER_DB/$MASTER_DB/g" /conf/mastersrv.conf
+          sed -i "s/SLAVE_DB/$SLAVE_DB/g" /conf/mastersrv.conf
+        volumeMounts:
+        - name: conf
+          mountPath: /conf
+        - name: config-volume
+          mountPath: /config-volume
+      - name: init-db
+        image: mysql:5.6
+        env:
+        - name: MASTER_DB
+          value: cdn-mysql-0.cdn-mysql
+        - name: SLAVE_DB
+          value: cdn-mysql-1.cdn-mysql
+        command:
+        - sh
+        - "-c"
+        - |
+          # set -ex
+          # 等待mysqld启动
+          until mysql -h $MASTER_DB -e "SELECT 1"; do sleep 1; done
+          until mysql -h $SLAVE_DB -e "SELECT 1"; do sleep 1; done
+          
+          mysql -h $MASTER_DB << EOF
+          # 主数据库
+          create database dbcdnmastersrv;
+          # VIP数据库
+          create database movie_box_source;
+          EOF
+          mysql -h $MASTER_DB dbcdnmastersrv</db/dbcdnmastersrv.sql
+          mysql -h $MASTER_DB movie_box_source</db/movie_box_source.sql
+
+          mysql -h $SLAVE_DB << EOF
+          # 备份数据库
+          create database dbcdnmastersrv;
+          # 持久化数据库
+          create database movie_box_source;
+          EOF
+          mysql -h $SLAVE_DB dbcdnmastersrv</db/dbcdnmastersrv.sql
+          mysql -h $SLAVE_DB movie_box_source</db/movie_box_source.sql
+        volumeMounts:
+        - name: db-volume
+          mountPath: /db
+      containers:
+      - name: cdn-cdnmaster
+        image: zhangmin/p2p/cdn
+        workingDir: /opt/server/cdn/cdnmaster
+        command: ['sh', '-c', './cdnmaster -l']
+        imagePullPolicy: IfNotPresent # 从本地拉取镜像
+        ports:
+        - containerPort: 23232
+          name: tcp
+        - containerPort: 23231
+          name: http
+        volumeMounts:
+        - name: conf
+          mountPath: /opt/server/cdn/cdnmaster/conf
+      volumes:
+      - name: conf
+        emptyDir: {}
+      - name: config-volume
+        configMap:
+          name: configmap-cdnmaster-conf
+          # 指定文件
+          # items:
+          # - key: mastersrv.conf
+          #   path: mastersrv.conf
+      - name: db-volume
+        configMap:
+          name: configmap-cdnmaster-db                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
