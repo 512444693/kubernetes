@@ -1,5 +1,6 @@
 ### 说明
 创建1个cdnctlmgr，1个cdnmaster，2个db
+
 ![image](https://raw.githubusercontent.com/512444693/resources/master/kubernetes/1.jpg)
 
 ### 使用
