@@ -19,3 +19,6 @@ kubectl create namespace test
 ```
 ./teardown.sh test
 ```
+
+[![asciicast](https://asciinema.org/a/fqTcKencIALWyky514c48rwb6.png)](https://asciinema.org/a/fqTcKencIALWyky514c48rwb6)
+
