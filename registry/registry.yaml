@@ -12,6 +12,19 @@ spec:
   selector:
     app: registry
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pv-claim
+  labels:
+    cpp: registry
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -33,5 +46,5 @@ spec:
           mountPath: /var/lib/registry
       volumes:
       - name: registry-persistent-storage
-        hostPath:
-          path: /tmp/data/registry
+        persistentVolumeClaim:
+          claimName: registry-pv-claim
