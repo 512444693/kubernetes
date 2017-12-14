@@ -89,14 +89,9 @@ spec:
           mysql -h $MASTER_DB dbcdnmastersrv</db/dbcdnmastersrv.sql
           mysql -h $MASTER_DB movie_box_source</db/movie_box_source.sql
 
-          mysql -h $SLAVE_DB << EOF
           # 备份数据库
-          create database dbcdnmastersrv;
-          # 持久化数据库
-          create database movie_box_source;
-          EOF
+          mysql -h $SLAVE_DB -e "create database dbcdnmastersrv"
           mysql -h $SLAVE_DB dbcdnmastersrv</db/dbcdnmastersrv.sql
-          mysql -h $SLAVE_DB movie_box_source</db/movie_box_source.sql
         volumeMounts:
         - name: db-volume
           mountPath: /db
@@ -114,6 +109,9 @@ spec:
         volumeMounts:
         - name: conf
           mountPath: /opt/server/cdn/cdnmaster/conf
+        # 持久化文件列表的目录，文件名为gcids
+        - name: persistent-gcids
+          mountPath: /tmp/data
       volumes:
       - name: conf
         emptyDir: {}
@@ -126,4 +124,7 @@ spec:
           #   path: mastersrv.conf
       - name: db-volume
         configMap:
-          name: configmap-cdnmaster-db                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+          name: configmap-cdnmaster-db
+      - name: persistent-gcids
+        hostPath:
+          path: /tmp/data/cdnmaster
